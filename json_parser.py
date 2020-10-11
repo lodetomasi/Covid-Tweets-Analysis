@@ -11,6 +11,7 @@ import gzip
 import heapq
 import os
 import pandas as pd 
+import numpy as np
 import re
 import math
 import nltk
@@ -19,6 +20,7 @@ import time
 from nltk.corpus import stopwords
 from nltk.stem import PorterStemmer
 from nltk.tokenize import word_tokenize
+from pyts.approximation import PiecewiseAggregateApproximation
 
 cachedStopWords = stopwords.words("english")   #this HUGELY improves exec time
 
@@ -53,7 +55,7 @@ def text_preprocessing(input_text):
 
     return tokenized
 
-def chiavi():
+def chiavi():  #Returns a list of strings containing keys about day and hour (spans the entire month)
     chiavi = []
     rad = 'TweetsText-03-'
     for i in range(1,31):
@@ -61,13 +63,26 @@ def chiavi():
             chiavi.append(rad + str(i).zfill(2) + '-' + str(j).zfill(2) + '.txt')
     return chiavi
 
-def time_window(n):
+def time_window(n):  #Returns a list of strings containing keys about day and hour (spans the given window)
     if (n==0):
         return chiavi()[:80]
     else:
         return chiavi()[40*n:40*n+80]
     
-
+def fill_series(diz,window):    #Takes the most common 100k terms and fills their timeseries with 0s in hours in which they are not used
+    timeseries = nested_dict()
+    window = time_window(window)
+    for term in diz:
+        #print('The normalized frequency of the term \'{}\' over time is: {}'.format(term,dict.__repr__(tf[term]).replace('TweetsText-','')))
+        timeseries[term] = copy.deepcopy(tf[term])
+        for key, value in list(timeseries[term].items()):
+            if key not in window:
+                del timeseries[term][key]
+        for el in window:
+            if el not in timeseries[term]:
+                timeseries[term][el] = 0
+    return timeseries
+    
 #%% Opens the json files contained in the jsonl.gz archives, processes them and create some partial output txt files 
 
 path = 'D:/Users/morel/Desktop/ing_inf/DATA_ANALYSIS/social_data_mining/project/COVID-19-TweetIDs-master/MarchTweets'
@@ -147,21 +162,22 @@ for a in tf_idf:
             tf_idf[a][b] = tf_idf[a][b]*idf[a]    
     sums[a] = sum(tf_idf[a].values()) 
     
-#top100k = heapq.nlargest(100000, sums, key=sums.__getitem__)  #Only top 100k tokens are necessary
-top100k = dict(collections.Counter(sums).most_common(100000))
-   
-n = 100000                                                                 
+#top100k = heapq.nlargest(100000, sums, key=sums.__getitem__)  #Only top 100k tokens are necessary 
+n = 100000     
+top100k = dict(collections.Counter(sums).most_common(n))                                                            
 #print('\n Top {} words: '.format(n))
 #print(dict(collections.Counter(sums).most_common(n)))
+timeseries1 = fill_series(top100k,0)
+timeseries2 = fill_series(top100k,1)
+timeseries3 = fill_series(top100k,2)
+timeseries4 = fill_series(top100k,3)
+timeseries5 = fill_series(top100k,4)
 
-timeseries = nested_dict()
-
-for term in dict(collections.Counter(sums).most_common(n)):
-    #print('The normalized frequency of the term \'{}\' over time is: {}'.format(term,dict.__repr__(tf[term]).replace('TweetsText-','')))
-    timeseries[term] = tf[term]
-    for el in chiavi():
-        if el not in timeseries[term]:
-            timeseries[term][el] = 0
+PAA = pd.DataFrame()
+transformer = PiecewiseAggregateApproximation(window_size=8)
+for diz in timeseries1:
+    for key, value in diz.items():
+        PAA[key] = transformer.transform(np.array(list(timeseries1[diz].values())).reshape(1,-1))
        
 #%%  TESTS
        
