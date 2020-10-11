@@ -124,7 +124,7 @@ path = 'D:/Users/morel/Desktop/ing_inf/DATA_ANALYSIS/social_data_mining/project/
 def nested_dict():
     return collections.defaultdict(nested_dict)
 
-max_freq={}
+max_freq={}            #Calculating TF-IDF
 idf={}
 tf=nested_dict()
 docs = 0
@@ -161,23 +161,30 @@ for a in tf_idf:
     for b in tf_idf[a]:
             tf_idf[a][b] = tf_idf[a][b]*idf[a]    
     sums[a] = sum(tf_idf[a].values()) 
-    
-#top100k = heapq.nlargest(100000, sums, key=sums.__getitem__)  #Only top 100k tokens are necessary 
-n = 100000     
+
+n = 100000          #Only top 100k tokens are necessary 
 top100k = dict(collections.Counter(sums).most_common(n))                                                            
-#print('\n Top {} words: '.format(n))
-#print(dict(collections.Counter(sums).most_common(n)))
-timeseries1 = fill_series(top100k,0)
+timeseries1 = fill_series(top100k,0)         #Considering time windows...
 timeseries2 = fill_series(top100k,1)
 timeseries3 = fill_series(top100k,2)
 timeseries4 = fill_series(top100k,3)
 timeseries5 = fill_series(top100k,4)
 
-PAA = pd.DataFrame()
-transformer = PiecewiseAggregateApproximation(window_size=8)
+PAA1 = {}
+PAA2 = {}
+PAA3 = {}
+PAA4 = {}
+PAA5 = {}
 for diz in timeseries1:
-    for key, value in diz.items():
-        PAA[key] = transformer.transform(np.array(list(timeseries1[diz].values())).reshape(1,-1))
+    PAA1[diz] = np.mean(np.array(list(timeseries1[diz].values())).reshape(-1, 8), axis=1)    #Time series grain of 24h   (we took 8 timestamps per day)
+for diz in timeseries2:
+    PAA2[diz] = np.mean(np.array(list(timeseries1[diz].values())).reshape(-1, 8), axis=1)
+for diz in timeseries3:
+    PAA3[diz] = np.mean(np.array(list(timeseries1[diz].values())).reshape(-1, 8), axis=1)
+for diz in timeseries4:
+    PAA4[diz] = np.mean(np.array(list(timeseries1[diz].values())).reshape(-1, 8), axis=1)
+for diz in timeseries5:
+    PAA5[diz] = np.mean(np.array(list(timeseries1[diz].values())).reshape(-1, 8), axis=1)
        
 #%%  TESTS
        
@@ -187,3 +194,14 @@ for diz in timeseries1:
 #    text_preprocessing(tweetDict['full_text'])
 #end = time.time() 
 #print(end-start)       
+        
+timeseries_flatted = pd.DataFrame.from_dict({(i,j): timeseries1[i][j] 
+                           for i in timeseries1.keys() 
+                           for j in timeseries1[i].keys()},
+                       orient='index')
+
+timetimeseries_flatted=timeseries_flatted.reset_index()
+
+timetimeseries_flatted = timetimeseries_flatted.rename(columns = {'index':'filename'})
+timetimeseries_flatted = timetimeseries_flatted.rename(columns = {0:'value'})
+timetimeseries_flatted[['word','timestamp']] = timetimeseries_flatted.filename.str.split(",",expand=True,)
