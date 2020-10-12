@@ -8,7 +8,7 @@ Created on Mon Jul 27 13:08:42 2020
 import json
 import glob
 import gzip
-import heapq
+#import heapq
 import os
 import pandas as pd 
 import numpy as np
@@ -19,8 +19,9 @@ import copy
 import time
 from nltk.corpus import stopwords
 from nltk.stem import PorterStemmer
-from nltk.tokenize import word_tokenize
-from pyts.approximation import PiecewiseAggregateApproximation
+#from nltk.tokenize import word_tokenize
+#from pyts.approximation import PiecewiseAggregateApproximation
+from pyts.approximation import SymbolicAggregateApproximation
 
 cachedStopWords = stopwords.words("english")   #this HUGELY improves exec time
 
@@ -170,7 +171,7 @@ timeseries3 = fill_series(top100k,2)
 timeseries4 = fill_series(top100k,3)
 timeseries5 = fill_series(top100k,4)
 
-PAA1 = {}
+PAA1 = {}          #PAA  (we reduce dimension)
 PAA2 = {}
 PAA3 = {}
 PAA4 = {}
@@ -178,13 +179,40 @@ PAA5 = {}
 for diz in timeseries1:
     PAA1[diz] = np.mean(np.array(list(timeseries1[diz].values())).reshape(-1, 8), axis=1)    #Time series grain of 24h   (we took 8 timestamps per day)
 for diz in timeseries2:
-    PAA2[diz] = np.mean(np.array(list(timeseries1[diz].values())).reshape(-1, 8), axis=1)
+    PAA2[diz] = np.mean(np.array(list(timeseries2[diz].values())).reshape(-1, 8), axis=1)
 for diz in timeseries3:
-    PAA3[diz] = np.mean(np.array(list(timeseries1[diz].values())).reshape(-1, 8), axis=1)
+    PAA3[diz] = np.mean(np.array(list(timeseries3[diz].values())).reshape(-1, 8), axis=1)
 for diz in timeseries4:
-    PAA4[diz] = np.mean(np.array(list(timeseries1[diz].values())).reshape(-1, 8), axis=1)
+    PAA4[diz] = np.mean(np.array(list(timeseries4[diz].values())).reshape(-1, 8), axis=1)
 for diz in timeseries5:
-    PAA5[diz] = np.mean(np.array(list(timeseries1[diz].values())).reshape(-1, 8), axis=1)
+    PAA5[diz] = np.mean(np.array(list(timeseries5[diz].values())).reshape(-1, 8), axis=1)
+    
+# SAX transformation   --> transform those time series into sequences of As and Bs
+n_bins = 2
+sax = SymbolicAggregateApproximation(n_bins=n_bins, strategy='normal')
+
+SAX1 = {}
+SAX2 = {}
+SAX3 = {}
+SAX4 = {}
+SAX5 = {}
+
+for diz in PAA1:        #These take around 20 seconds each
+    if not np.all(PAA1[diz] == PAA1[diz][0]):
+        SAX1[diz] = sax.fit_transform(PAA1[diz].reshape(1,-1))
+for diz in PAA2:
+    if not np.all(PAA2[diz] == PAA2[diz][0]):
+        SAX2[diz] = sax.fit_transform(PAA2[diz].reshape(1,-1))
+for diz in PAA3:
+    if not np.all(PAA3[diz] == PAA3[diz][0]):
+        SAX3[diz] = sax.fit_transform(PAA3[diz].reshape(1,-1))
+for diz in PAA4:     
+    if not np.all(PAA4[diz] == PAA4[diz][0]):
+        SAX4[diz] = sax.fit_transform(PAA4[diz].reshape(1,-1))
+for diz in PAA5:
+    if not np.all(PAA5[diz] == PAA5[diz][0]):
+        SAX5[diz] = sax.fit_transform(PAA5[diz].reshape(1,-1))
+
        
 #%%  TESTS
        
@@ -195,13 +223,4 @@ for diz in timeseries5:
 #end = time.time() 
 #print(end-start)       
         
-timeseries_flatted = pd.DataFrame.from_dict({(i,j): timeseries1[i][j] 
-                           for i in timeseries1.keys() 
-                           for j in timeseries1[i].keys()},
-                       orient='index')
 
-timetimeseries_flatted=timeseries_flatted.reset_index()
-
-timetimeseries_flatted = timetimeseries_flatted.rename(columns = {'index':'filename'})
-timetimeseries_flatted = timetimeseries_flatted.rename(columns = {0:'value'})
-timetimeseries_flatted[['word','timestamp']] = timetimeseries_flatted.filename.str.split(",",expand=True,)
