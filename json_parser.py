@@ -6,6 +6,7 @@ Created on Mon Jul 27 13:08:42 2020
 """
 
 import json
+import re
 import glob
 import gzip
 #import heapq
@@ -177,15 +178,15 @@ PAA3 = {}
 PAA4 = {}
 PAA5 = {}
 for diz in timeseries1:
-    PAA1[diz] = np.mean(np.array(list(timeseries1[diz].values())).reshape(-1, 8), axis=1)    #Time series grain of 24h   (we took 8 timestamps per day)
+    PAA1[diz] = np.mean(np.array(list(timeseries1[diz].values())).reshape(-1, 4), axis=1)    #Time series grain of 24h   (we took 8 timestamps per day)
 for diz in timeseries2:
-    PAA2[diz] = np.mean(np.array(list(timeseries2[diz].values())).reshape(-1, 8), axis=1)
+    PAA2[diz] = np.mean(np.array(list(timeseries2[diz].values())).reshape(-1, 4), axis=1)
 for diz in timeseries3:
-    PAA3[diz] = np.mean(np.array(list(timeseries3[diz].values())).reshape(-1, 8), axis=1)
+    PAA3[diz] = np.mean(np.array(list(timeseries3[diz].values())).reshape(-1, 4), axis=1)
 for diz in timeseries4:
-    PAA4[diz] = np.mean(np.array(list(timeseries4[diz].values())).reshape(-1, 8), axis=1)
+    PAA4[diz] = np.mean(np.array(list(timeseries4[diz].values())).reshape(-1, 4), axis=1)
 for diz in timeseries5:
-    PAA5[diz] = np.mean(np.array(list(timeseries5[diz].values())).reshape(-1, 8), axis=1)
+    PAA5[diz] = np.mean(np.array(list(timeseries5[diz].values())).reshape(-1, 4), axis=1)
     
 # SAX transformation   --> transform those time series into sequences of As and Bs
 n_bins = 2
@@ -215,12 +216,51 @@ for diz in PAA5:
 
        
 #%%  TESTS
-       
-#import time
-#start = time.time()
-#for i in range (1000):
-#    text_preprocessing(tweetDict['full_text'])
-#end = time.time() 
-#print(end-start)       
+#import heapq  #top k items of a dict
+#heapq.nlargest(10, top100k, key=top100k.__getitem__)
+
+#import random  #random sample of a dict
+#prova = dict(random.sample(SAX1.items(), 50))   
         
 
+#regex = "a+b?bb?a+?a+b?bba*"    
+regex = "baa"
+#teststring = 'vvaaaabbbaabbe'
+
+#bool(re.search(regex, teststring))
+SAX1_CA = {}
+SAX2_CA = {}
+SAX3_CA = {}
+SAX4_CA = {}
+SAX5_CA = {}
+
+for el in SAX1:
+    #print (''.join(list(prova[el].flatten())))
+    if (bool(re.search(regex, ''.join(list(SAX1[el].flatten()))))):     #Check whether the regex appears in the time series
+        SAX1_CA[el] = SAX1[el]
+
+for el in SAX2:
+    #print (''.join(list(prova[el].flatten())))
+    if (bool(re.search(regex, ''.join(list(SAX2[el].flatten()))))):
+        SAX2_CA[el] = SAX2[el]
+
+for el in SAX3:
+    #print (''.join(list(prova[el].flatten())))
+    if (bool(re.search(regex, ''.join(list(SAX3[el].flatten()))))):
+        SAX3_CA[el] = SAX3[el]
+
+for el in SAX4:
+    #print (''.join(list(prova[el].flatten())))
+    if (bool(re.search(regex, ''.join(list(SAX4[el].flatten()))))):
+        SAX4_CA[el] = SAX4[el]
+
+for el in SAX5:
+    #print (''.join(list(prova[el].flatten())))
+    if (bool(re.search(regex, ''.join(list(SAX5[el].flatten()))))):
+        SAX5_CA[el] = SAX5[el]
+
+       
+        
+    
+
+#''.join(list(pippo.flatten()))
