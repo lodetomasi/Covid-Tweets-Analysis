@@ -190,7 +190,7 @@ for diz in timeseries5:
     
 # SAX transformation   --> transform those time series into sequences of As and Bs
 n_bins = 2
-sax = SymbolicAggregateApproximation(n_bins=n_bins, strategy='normal')
+sax = SymbolicAggregateApproximation(n_bins=n_bins, strategy='uniform')
 
 SAX1 = {}
 SAX2 = {}
@@ -217,14 +217,14 @@ for diz in PAA5:
        
 #%%  TESTS
 #import heapq  #top k items of a dict
-#heapq.nlargest(10, top100k, key=top100k.__getitem__)
+#pippo = heapq.nlargest(50, timeseries3, key=top100k.__getitem__)
 
-#import random  #random sample of a dict
+import random  #random sample of a dict
 #prova = dict(random.sample(SAX1.items(), 50))   
         
 
-#regex = "a+b?bb?a+?a+b?bba*"    
-regex = "baa"
+regex = "a+b?bb?a+?a+b?bba*"    
+#regex = "ba"
 #teststring = 'vvaaaabbbaabbe'
 
 #bool(re.search(regex, teststring))
@@ -259,8 +259,13 @@ for el in SAX5:
     if (bool(re.search(regex, ''.join(list(SAX5[el].flatten()))))):
         SAX5_CA[el] = SAX5[el]
 
-       
-        
+print(len(SAX1_CA))
+print(len(SAX2_CA))
+print(len(SAX3_CA))
+print(len(SAX4_CA))
+print(len(SAX5_CA))
+    
+prova = dict(random.sample(SAX3_CA.items(), 50))         
     
 
 #''.join(list(pippo.flatten()))
