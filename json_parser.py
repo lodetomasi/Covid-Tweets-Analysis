@@ -13,7 +13,7 @@ import gzip
 import os
 import pandas as pd 
 import numpy as np
-import re
+import random
 import math
 import nltk
 import copy
@@ -85,11 +85,10 @@ def fill_series(diz,window):    #Takes the most common 100k terms and fills thei
                 timeseries[term][el] = 0
     return timeseries
     
-#%% Opens the json files contained in the jsonl.gz archives, processes them and create some partial output txt files 
+#%% 0.1 DOWNLOADING DATA
+#Opens the json files contained in the jsonl.gz archives, processes them and create some partial output txt files 
 
 path = 'D:/Users/morel/Desktop/ing_inf/DATA_ANALYSIS/social_data_mining/project/COVID-19-TweetIDs-master/MarchTweets'
-#df = pd.DataFrame()
-#start = time.time()
 
 for filename in glob.glob(os.path.join(path, '*.jsonl.gz')):
     
@@ -104,21 +103,15 @@ for filename in glob.glob(os.path.join(path, '*.jsonl.gz')):
             if "retweeted_status" in tweetDict:   #retweets and normal tweets have a DIFFERENT STRUCTURE! the former's "full_text" is truncated, so it's necessary to load the original tweet
                 g.write('\n'.join(text_preprocessing(tweetDict['retweeted_status']['full_text'])))
             else:
-                g.write('\n'.join(text_preprocessing(tweetDict['full_text'])))
+                g.write('\n'.join(text_preprocessing(tweetDict['full_text'])))               
 
-#end=time.time()
-#print(end-start)                             
-
-#noret = []                             #Tweets that are NOT retweets are VERY FEW
-#for text in globals()[nome]:
-#    if not text.startswith('RT @'):
-#        noret.append(text)
         
 #%%   An example of a tweet processing
             
 #print(text_preprocessing("@wadster13 @SaraCarterDC Question, does the attachment highlight an on going plan to distroy America by taking down President Trump and it's economy. Just because there is no shots fired don't mind that we're not at war https://t.co/MgEENN04ez"))
 
-#%% Open the txt files just generated, computes the TF-IDF of words and identifies the most common ones
+#%% 0.2 IDENTIFYING TOP 100k TOKENS
+#Opens the txt files just generated, computes the TF-IDF of words and identifies the most common ones
                 
 import collections 
 path = 'D:/Users/morel/Desktop/ing_inf/DATA_ANALYSIS/social_data_mining/project/COVID-19-TweetIDs-master/MarchTweets'
@@ -165,7 +158,10 @@ for a in tf_idf:
     sums[a] = sum(tf_idf[a].values()) 
 
 n = 100000          #Only top 100k tokens are necessary 
-top100k = dict(collections.Counter(sums).most_common(n))                                                            
+top100k = dict(collections.Counter(sums).most_common(n))        
+
+#%%0.2A BUILDING TIME-SERIES        
+                                             
 timeseries1 = fill_series(top100k,0)         #Considering time windows...
 timeseries2 = fill_series(top100k,1)
 timeseries3 = fill_series(top100k,2)
@@ -178,7 +174,7 @@ PAA3 = {}
 PAA4 = {}
 PAA5 = {}
 for diz in timeseries1:
-    PAA1[diz] = np.mean(np.array(list(timeseries1[diz].values())).reshape(-1, 4), axis=1)    #Time series grain of 24h   (we took 8 timestamps per day)
+    PAA1[diz] = np.mean(np.array(list(timeseries1[diz].values())).reshape(-1, 4), axis=1)    #Time series grain of 12h   (we took 8 timestamps per day)
 for diz in timeseries2:
     PAA2[diz] = np.mean(np.array(list(timeseries2[diz].values())).reshape(-1, 4), axis=1)
 for diz in timeseries3:
@@ -188,9 +184,9 @@ for diz in timeseries4:
 for diz in timeseries5:
     PAA5[diz] = np.mean(np.array(list(timeseries5[diz].values())).reshape(-1, 4), axis=1)
     
-# SAX transformation   --> transform those time series into sequences of As and Bs
+#%% 0.2B SAX
 n_bins = 2
-sax = SymbolicAggregateApproximation(n_bins=n_bins, strategy='uniform')
+sax = SymbolicAggregateApproximation(n_bins=n_bins, strategy='uniform') #transform those time series into sequences of As and Bs
 
 SAX1 = {}
 SAX2 = {}
@@ -214,6 +210,37 @@ for diz in PAA5:
     if not np.all(PAA5[diz] == PAA5[diz][0]):
         SAX5[diz] = sax.fit_transform(PAA5[diz].reshape(1,-1))
 
+#FILTERING FOR COLLECTIVE ATTENTION      
+regex = "a+b?bb?a+?a+b?bba*"    
+
+SAX1_CA = {}
+SAX2_CA = {}
+SAX3_CA = {}
+SAX4_CA = {}
+SAX5_CA = {}
+
+for el in SAX1:
+    if (bool(re.search(regex, ''.join(list(SAX1[el].flatten()))))):     #Check whether the regex appears in the time series
+        SAX1_CA[el] = SAX1[el]
+
+for el in SAX2:
+    if (bool(re.search(regex, ''.join(list(SAX2[el].flatten()))))):
+        SAX2_CA[el] = SAX2[el]
+
+for el in SAX3:
+    if (bool(re.search(regex, ''.join(list(SAX3[el].flatten()))))):
+        SAX3_CA[el] = SAX3[el]
+
+for el in SAX4:
+    if (bool(re.search(regex, ''.join(list(SAX4[el].flatten()))))):
+        SAX4_CA[el] = SAX4[el]
+
+for el in SAX5:
+    if (bool(re.search(regex, ''.join(list(SAX5[el].flatten()))))):
+        SAX5_CA[el] = SAX5[el]
+    
+prova_ca = dict(random.sample(SAX3_CA.items(), 50))        
+
        
 #%%  TESTS
 #import heapq  #top k items of a dict
@@ -222,50 +249,10 @@ for diz in PAA5:
 import random  #random sample of a dict
 #prova = dict(random.sample(SAX1.items(), 50))   
         
+from sklearn.cluster import KMeans
+import numpy as np
+X = np.array([[1, 2], [1, 4], [1, 0], [10, 2], [10, 4], [10, 0]])
+kmeans = KMeans(n_clusters=2, random_state=0).fit(X)
 
-regex = "a+b?bb?a+?a+b?bba*"    
-#regex = "ba"
-#teststring = 'vvaaaabbbaabbe'
-
-#bool(re.search(regex, teststring))
-SAX1_CA = {}
-SAX2_CA = {}
-SAX3_CA = {}
-SAX4_CA = {}
-SAX5_CA = {}
-
-for el in SAX1:
-    #print (''.join(list(prova[el].flatten())))
-    if (bool(re.search(regex, ''.join(list(SAX1[el].flatten()))))):     #Check whether the regex appears in the time series
-        SAX1_CA[el] = SAX1[el]
-
-for el in SAX2:
-    #print (''.join(list(prova[el].flatten())))
-    if (bool(re.search(regex, ''.join(list(SAX2[el].flatten()))))):
-        SAX2_CA[el] = SAX2[el]
-
-for el in SAX3:
-    #print (''.join(list(prova[el].flatten())))
-    if (bool(re.search(regex, ''.join(list(SAX3[el].flatten()))))):
-        SAX3_CA[el] = SAX3[el]
-
-for el in SAX4:
-    #print (''.join(list(prova[el].flatten())))
-    if (bool(re.search(regex, ''.join(list(SAX4[el].flatten()))))):
-        SAX4_CA[el] = SAX4[el]
-
-for el in SAX5:
-    #print (''.join(list(prova[el].flatten())))
-    if (bool(re.search(regex, ''.join(list(SAX5[el].flatten()))))):
-        SAX5_CA[el] = SAX5[el]
-
-print(len(SAX1_CA))
-print(len(SAX2_CA))
-print(len(SAX3_CA))
-print(len(SAX4_CA))
-print(len(SAX5_CA))
-    
-prova = dict(random.sample(SAX3_CA.items(), 50))         
-    
-
-#''.join(list(pippo.flatten()))
+kmeans.cluster_centers_
+kmeans.labels_
