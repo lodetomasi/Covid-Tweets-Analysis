@@ -18,6 +18,7 @@ import math
 import nltk
 import copy
 import time
+import distance
 from nltk.corpus import stopwords
 from nltk.stem import PorterStemmer
 #from nltk.tokenize import word_tokenize
@@ -239,20 +240,39 @@ for el in SAX5:
     if (bool(re.search(regex, ''.join(list(SAX5[el].flatten()))))):
         SAX5_CA[el] = SAX5[el]
     
-prova_ca = dict(random.sample(SAX3_CA.items(), 50))        
+prova_ca = dict(random.sample(SAX3_CA.items(), 100))      
 
+#%% 0.2C CLUSTERING    
+#THESE LINES OF CODE SHOULD BE REPEATED FOR EACH TIME WINDOW... :)
+
+df = pd.DataFrame(0, index = sorted(SAX5_CA.keys()), columns = sorted(SAX5_CA.keys())) 
+
+distances=[]
+
+for el1 in sorted(SAX5_CA):
+    for el2 in sorted(SAX5_CA):
+        #if el2>el1:
+            distances.append(np.count_nonzero(SAX5_CA[el2]!=SAX5_CA[el1]))
+            #df.loc[el1,el2] = np.count_nonzero(prova_ca[el2]!=prova_ca[el1])
+
+lun = len(SAX5_CA)           
+#df2 = pd.DataFrame(0, index = sorted(prova_ca.keys()), columns = sorted(prova_ca.keys())) 
+for i in range (lun):
+    df.iloc[i] = distances[i*lun:(i+1)*lun]
+
+from sklearn.cluster import AgglomerativeClustering   #Using this clustering algorithm with the distance matrix just obtained 
+n = round(lun/20)  #T'/20
+model = AgglomerativeClustering(affinity='precomputed', n_clusters=n, linkage='complete').fit(df)
+dict_labels = {k:v for k,v in zip(list(SAX5_CA.keys()),model.labels_)}
+
+clusters = {}          #This will contain words per cluster
+for k, v in dict_labels.items():
+    clusters.setdefault(v, []).append(k)
        
 #%%  TESTS
 #import heapq  #top k items of a dict
 #pippo = heapq.nlargest(50, timeseries3, key=top100k.__getitem__)
 
-import random  #random sample of a dict
+#import random  #random sample of a dict
 #prova = dict(random.sample(SAX1.items(), 50))   
-        
-from sklearn.cluster import KMeans
-import numpy as np
-X = np.array([[1, 2], [1, 4], [1, 0], [10, 2], [10, 4], [10, 0]])
-kmeans = KMeans(n_clusters=2, random_state=0).fit(X)
 
-kmeans.cluster_centers_
-kmeans.labels_
