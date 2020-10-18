@@ -21,6 +21,7 @@ import time
 import distance
 from nltk.corpus import stopwords
 from nltk.stem import PorterStemmer
+from sklearn.cluster import AgglomerativeClustering 
 #from nltk.tokenize import word_tokenize
 #from pyts.approximation import PiecewiseAggregateApproximation
 from pyts.approximation import SymbolicAggregateApproximation
@@ -85,6 +86,57 @@ def fill_series(diz,window):    #Takes the most common 100k terms and fills thei
             if el not in timeseries[term]:
                 timeseries[term][el] = 0
     return timeseries
+
+def paa(window):
+    timeseries = fill_series(top100k,window)   #Considering time windows...
+    PAA = {}     #PAA  (we reduce dimension)
+    
+    for diz in timeseries:
+        PAA[diz] = np.mean(np.array(list(timeseries[diz].values())).reshape(-1, 4), axis=1)    #Time series grain of 12h   (we took 8 timestamps per day)  [reshape(-1,8) if 24h]
+    
+    return PAA 
+
+def sax_ca(PAA, sax):
+    SAX = {}
+    
+    for diz in PAA:        #These take around 20 seconds each
+        if not np.all(PAA[diz] == PAA[diz][0]):
+            SAX[diz] = sax.fit_transform(PAA[diz].reshape(1,-1))
+        
+    regex = "a+b?bb?a+?a+b?bba*"    
+    
+    SAX_CA = {} #Collective Attention
+    regex = "a+b?bb?a+?a+b?bba*"   
+    
+    for el in SAX:
+        if (bool(re.search(regex, ''.join(list(SAX[el].flatten()))))):     #Check whether the regex appears in the time series
+            SAX_CA[el] = SAX[el]
+        
+    return SAX_CA
+
+def clustering(sax):
+    df = pd.DataFrame(0, index = sorted(sax.keys()), columns = sorted(sax.keys())) 
+    distances = []
+    
+    for el1 in sorted(sax):
+        for el2 in sorted(sax):
+            #if el2>el1:
+                distances.append(np.count_nonzero(sax[el2]!=sax[el1]))
+                
+    lun = len(sax)
+    
+    for i in range (lun):
+        df.iloc[i] = distances[i*lun:(i+1)*lun]
+        
+    n = round(lun/20)  #T'/20
+    model = AgglomerativeClustering(affinity='precomputed', n_clusters=n, linkage='complete').fit(df)  #Using the clustering algorithm with the distance matrix just obtained 
+    dict_labels = {k:v for k,v in zip(list(sax.keys()),model.labels_)}
+    
+    clusters = {}          #This will contain words per cluster
+    for k, v in dict_labels.items():
+        clusters.setdefault(v, []).append(k)
+        
+    return clusters
     
 #%% 0.1 DOWNLOADING DATA
 #Opens the json files contained in the jsonl.gz archives, processes them and create some partial output txt files 
@@ -161,113 +213,33 @@ for a in tf_idf:
 n = 100000          #Only top 100k tokens are necessary 
 top100k = dict(collections.Counter(sums).most_common(n))        
 
-#%%0.2A BUILDING TIME-SERIES        
-                                             
-timeseries1 = fill_series(top100k,0)         #Considering time windows...
-timeseries2 = fill_series(top100k,1)
-timeseries3 = fill_series(top100k,2)
-timeseries4 = fill_series(top100k,3)
-timeseries5 = fill_series(top100k,4)
-
-PAA1 = {}          #PAA  (we reduce dimension)
-PAA2 = {}
-PAA3 = {}
-PAA4 = {}
-PAA5 = {}
-for diz in timeseries1:
-    PAA1[diz] = np.mean(np.array(list(timeseries1[diz].values())).reshape(-1, 4), axis=1)    #Time series grain of 12h   (we took 8 timestamps per day)
-for diz in timeseries2:
-    PAA2[diz] = np.mean(np.array(list(timeseries2[diz].values())).reshape(-1, 4), axis=1)
-for diz in timeseries3:
-    PAA3[diz] = np.mean(np.array(list(timeseries3[diz].values())).reshape(-1, 4), axis=1)
-for diz in timeseries4:
-    PAA4[diz] = np.mean(np.array(list(timeseries4[diz].values())).reshape(-1, 4), axis=1)
-for diz in timeseries5:
-    PAA5[diz] = np.mean(np.array(list(timeseries5[diz].values())).reshape(-1, 4), axis=1)
+#%%0.2A BUILDING TIME SERIES        
+                                              
+PAA1 = paa(0)  #These will take about 1 minute in total
+PAA2 = paa(1)
+PAA3 = paa(2)
+PAA4 = paa(3)
+PAA5 = paa(4)
     
 #%% 0.2B SAX
 n_bins = 2
 sax = SymbolicAggregateApproximation(n_bins=n_bins, strategy='uniform') #transform those time series into sequences of As and Bs
-
-SAX1 = {}
-SAX2 = {}
-SAX3 = {}
-SAX4 = {}
-SAX5 = {}
-
-for diz in PAA1:        #These take around 20 seconds each
-    if not np.all(PAA1[diz] == PAA1[diz][0]):
-        SAX1[diz] = sax.fit_transform(PAA1[diz].reshape(1,-1))
-for diz in PAA2:
-    if not np.all(PAA2[diz] == PAA2[diz][0]):
-        SAX2[diz] = sax.fit_transform(PAA2[diz].reshape(1,-1))
-for diz in PAA3:
-    if not np.all(PAA3[diz] == PAA3[diz][0]):
-        SAX3[diz] = sax.fit_transform(PAA3[diz].reshape(1,-1))
-for diz in PAA4:     
-    if not np.all(PAA4[diz] == PAA4[diz][0]):
-        SAX4[diz] = sax.fit_transform(PAA4[diz].reshape(1,-1))
-for diz in PAA5:
-    if not np.all(PAA5[diz] == PAA5[diz][0]):
-        SAX5[diz] = sax.fit_transform(PAA5[diz].reshape(1,-1))
-
-#FILTERING FOR COLLECTIVE ATTENTION      
-regex = "a+b?bb?a+?a+b?bba*"    
-
-SAX1_CA = {}
-SAX2_CA = {}
-SAX3_CA = {}
-SAX4_CA = {}
-SAX5_CA = {}
-
-for el in SAX1:
-    if (bool(re.search(regex, ''.join(list(SAX1[el].flatten()))))):     #Check whether the regex appears in the time series
-        SAX1_CA[el] = SAX1[el]
-
-for el in SAX2:
-    if (bool(re.search(regex, ''.join(list(SAX2[el].flatten()))))):
-        SAX2_CA[el] = SAX2[el]
-
-for el in SAX3:
-    if (bool(re.search(regex, ''.join(list(SAX3[el].flatten()))))):
-        SAX3_CA[el] = SAX3[el]
-
-for el in SAX4:
-    if (bool(re.search(regex, ''.join(list(SAX4[el].flatten()))))):
-        SAX4_CA[el] = SAX4[el]
-
-for el in SAX5:
-    if (bool(re.search(regex, ''.join(list(SAX5[el].flatten()))))):
-        SAX5_CA[el] = SAX5[el]
+        
+SAX1_CA = sax_ca(PAA1, sax)   #These will take about 20 seconds each
+SAX2_CA = sax_ca(PAA2, sax)
+SAX3_CA = sax_ca(PAA3, sax)
+SAX4_CA = sax_ca(PAA4, sax)
+SAX5_CA = sax_ca(PAA5, sax)
     
 prova_ca = dict(random.sample(SAX3_CA.items(), 100))      
 
 #%% 0.2C CLUSTERING    
-#THESE LINES OF CODE SHOULD BE REPEATED FOR EACH TIME WINDOW... :)
 
-df = pd.DataFrame(0, index = sorted(SAX5_CA.keys()), columns = sorted(SAX5_CA.keys())) 
-
-distances=[]
-
-for el1 in sorted(SAX5_CA):
-    for el2 in sorted(SAX5_CA):
-        #if el2>el1:
-            distances.append(np.count_nonzero(SAX5_CA[el2]!=SAX5_CA[el1]))
-            #df.loc[el1,el2] = np.count_nonzero(prova_ca[el2]!=prova_ca[el1])
-
-lun = len(SAX5_CA)           
-#df2 = pd.DataFrame(0, index = sorted(prova_ca.keys()), columns = sorted(prova_ca.keys())) 
-for i in range (lun):
-    df.iloc[i] = distances[i*lun:(i+1)*lun]
-
-from sklearn.cluster import AgglomerativeClustering   #Using this clustering algorithm with the distance matrix just obtained 
-n = round(lun/20)  #T'/20
-model = AgglomerativeClustering(affinity='precomputed', n_clusters=n, linkage='complete').fit(df)
-dict_labels = {k:v for k,v in zip(list(SAX5_CA.keys()),model.labels_)}
-
-clusters = {}          #This will contain words per cluster
-for k, v in dict_labels.items():
-    clusters.setdefault(v, []).append(k)
+clusters1 = clustering(SAX1_CA)  #These will take about 1 minute each
+clusters2 = clustering(SAX2_CA)
+clusters3 = clustering(SAX3_CA)
+clusters4 = clustering(SAX4_CA)
+clusters5 = clustering(SAX5_CA)
        
 #%%  TESTS
 #import heapq  #top k items of a dict
