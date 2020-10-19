@@ -17,6 +17,8 @@ import random
 import math
 import nltk
 import copy
+import itertools
+from scipy.sparse import csr_matrix
 import time
 import distance
 from nltk.corpus import stopwords
@@ -137,8 +139,30 @@ def clustering(sax):
         clusters.setdefault(v, []).append(k)
         
     return clusters
+
+def sentence_groups(l):  #divide list of strings into list of lists of strings when there is a '-' (thus creating a list per tweet)
+    group = []
+    groups = []
+    for w in l:
+        group.append(w)
+        if w == '-':
+            group.remove(w)
+            groups.append(group)
+            group = []
+    return groups    
+
+def create_co_occurences_matrix(allowed_words, documents):
+    word_to_id = dict(zip(allowed_words, range(len(allowed_words))))
+    documents_as_ids = [np.sort([word_to_id[w] for w in doc if w in word_to_id]).astype('uint32') for doc in documents]
+    row_ind, col_ind = zip(*itertools.chain(*[[(i, w) for w in doc] for i, doc in enumerate(documents_as_ids)]))
+    data = np.ones(len(row_ind), dtype='uint32')  # use unsigned int for better memory utilization
+    max_word_id = max(itertools.chain(*documents_as_ids)) + 1
+    docs_words_matrix = csr_matrix((data, (row_ind, col_ind)), shape=(len(documents_as_ids), max_word_id))  # efficient arithmetic operations with CSR * CSR
+    words_cooc_matrix = docs_words_matrix.T * docs_words_matrix  # multiplying docs_words_matrix with its transpose matrix would generate the co-occurences matrix
+    words_cooc_matrix.setdiag(0)
+    return words_cooc_matrix, word_to_id 
     
-#%% 0.1 DOWNLOADING DATA
+#%% 0.1 DOWNLOADING AND PROCESSING DATA
 #Opens the json files contained in the jsonl.gz archives, processes them and create some partial output txt files 
 
 path = 'D:/Users/morel/Desktop/ing_inf/DATA_ANALYSIS/social_data_mining/project/COVID-19-TweetIDs-master/MarchTweets'
@@ -154,9 +178,9 @@ for filename in glob.glob(os.path.join(path, '*.jsonl.gz')):
         for jsonObj in f:    #Each tweet in a file is a different json object
             tweetDict = json.loads(jsonObj)
             if "retweeted_status" in tweetDict:   #retweets and normal tweets have a DIFFERENT STRUCTURE! the former's "full_text" is truncated, so it's necessary to load the original tweet
-                g.write('\n'.join(text_preprocessing(tweetDict['retweeted_status']['full_text'])))
+                g.write('\n'.join(text_preprocessing(tweetDict['retweeted_status']['full_text']))+'\n-\n')
             else:
-                g.write('\n'.join(text_preprocessing(tweetDict['full_text'])))               
+                g.write('\n'.join(text_preprocessing(tweetDict['full_text']))+'\n-\n')               
 
         
 #%%   An example of a tweet processing
@@ -186,6 +210,8 @@ for filename in os.listdir(path):
     freq = {}
     with open(path + '/' + filename) as f:
         words = f.read().splitlines()
+        
+    words.remove('-')
 
     for word in words:                                                    
         if word not in freq:
@@ -235,16 +261,28 @@ prova_ca = dict(random.sample(SAX3_CA.items(), 100))
 
 #%% 0.2C CLUSTERING    
 
-clusters1 = clustering(SAX1_CA)  #These will take about 1 minute each
+clusters1 = clustering(SAX1_CA)  #These will take about 1/1.5 minutes each
 clusters2 = clustering(SAX2_CA)
 clusters3 = clustering(SAX3_CA)
 clusters4 = clustering(SAX4_CA)
 clusters5 = clustering(SAX5_CA)
+
+clusters = [clusters1,clusters2,clusters3,clusters4,clusters5]
        
 #%%  TESTS
 #import heapq  #top k items of a dict
-#pippo = heapq.nlargest(50, timeseries3, key=top100k.__getitem__)
+#pippo = heapq.nlargest(50, top100k, key=top100k.__getitem__)
 
 #import random  #random sample of a dict
 #prova = dict(random.sample(SAX1.items(), 50))   
 
+i = 0   #This will cycle for each window 0,1,2,3,4
+words2s = []   #We'll need 5 of these, or recycle it
+for filename in time_window(i):   #Cycling through tweets...
+    with open(path + '/' + filename) as f:
+        words2 = f.read().splitlines()
+        [words2s.append(group) for group in sentence_groups(words2)]   #words2s now contains all tweets in a time_window   
+    
+allowed_words = clusters[i][2]  #The 'alphabet' whose co-occurrencies we're searching  (words contained in a certain cluster in a certain time window)
+words_cooc_matrix, word_to_id = create_co_occurences_matrix(allowed_words, words2s)
+z = words_cooc_matrix.todense()
