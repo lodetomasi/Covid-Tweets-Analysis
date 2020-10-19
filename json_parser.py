@@ -4,7 +4,7 @@ Created on Mon Jul 27 13:08:42 2020
 
 @author: morel
 """
-
+#%%
 import json
 import re
 import glob
@@ -165,8 +165,7 @@ def create_co_occurences_matrix(allowed_words, documents):
 #%% 0.1 DOWNLOADING AND PROCESSING DATA
 #Opens the json files contained in the jsonl.gz archives, processes them and create some partial output txt files 
 
-path = 'D:/Users/morel/Desktop/ing_inf/DATA_ANALYSIS/social_data_mining/project/COVID-19-TweetIDs-master/MarchTweets'
-
+path = '/Users/lorenzodetomasi/Desktop/esame_stilo/prova'
 for filename in glob.glob(os.path.join(path, '*.jsonl.gz')):
     
     nome = 'TweetsText' + filename[-18:-9]    #It will be  '-MM-DD-HH'  (Month-Day-Hour)    
@@ -191,7 +190,7 @@ for filename in glob.glob(os.path.join(path, '*.jsonl.gz')):
 #Opens the txt files just generated, computes the TF-IDF of words and identifies the most common ones
                 
 import collections 
-path = 'D:/Users/morel/Desktop/ing_inf/DATA_ANALYSIS/social_data_mining/project/COVID-19-TweetIDs-master/MarchTweets'
+path = '/Users/lorenzodetomasi/Desktop/esame_stilo/prova'
 
 def nested_dict():
     return collections.defaultdict(nested_dict)
