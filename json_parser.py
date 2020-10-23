@@ -4,11 +4,13 @@ Created on Mon Jul 27 13:08:42 2020
 
 @author: morel
 """
-#%%
+
 import json
 import re
 import glob
 import gzip
+import warnings
+warnings.filterwarnings("ignore", category=UserWarning)
 #import heapq
 import os
 import pandas as pd 
@@ -20,7 +22,7 @@ import copy
 import itertools
 from scipy.sparse import csr_matrix
 import time
-import distance
+import networkx as nx
 from nltk.corpus import stopwords
 from nltk.stem import PorterStemmer
 from sklearn.cluster import AgglomerativeClustering 
@@ -135,7 +137,7 @@ def clustering(sax):
     dict_labels = {k:v for k,v in zip(list(sax.keys()),model.labels_)}
     
     clusters = {}          #This will contain words per cluster
-    for k, v in dict_labels.items():
+    for k, v in dict_labels.items():   #invert key-values of dictionary
         clusters.setdefault(v, []).append(k)
         
     return clusters
@@ -153,6 +155,7 @@ def sentence_groups(l):  #divide list of strings into list of lists of strings w
 
 def create_co_occurences_matrix(allowed_words, documents):
     word_to_id = dict(zip(allowed_words, range(len(allowed_words))))
+    id_to_word = {v: k for k, v in word_to_id.items()}
     documents_as_ids = [np.sort([word_to_id[w] for w in doc if w in word_to_id]).astype('uint32') for doc in documents]
     row_ind, col_ind = zip(*itertools.chain(*[[(i, w) for w in doc] for i, doc in enumerate(documents_as_ids)]))
     data = np.ones(len(row_ind), dtype='uint32')  # use unsigned int for better memory utilization
@@ -160,12 +163,28 @@ def create_co_occurences_matrix(allowed_words, documents):
     docs_words_matrix = csr_matrix((data, (row_ind, col_ind)), shape=(len(documents_as_ids), max_word_id))  # efficient arithmetic operations with CSR * CSR
     words_cooc_matrix = docs_words_matrix.T * docs_words_matrix  # multiplying docs_words_matrix with its transpose matrix would generate the co-occurences matrix
     words_cooc_matrix.setdiag(0)
-    return words_cooc_matrix, word_to_id 
+    return words_cooc_matrix, id_to_word 
+
+def co_occurrences_graph(window,cluster):
+    #Looking for terms in documents in the given window
+    allowed_words = clusters[window][cluster]  #The 'alphabet' whose co-occurrencies we're searching  (words contained in a certain cluster in a certain time window)
+    words_cooc_matrix, word_to_id = create_co_occurences_matrix(allowed_words, words_per_tweet[window]) #These take around 30 seconds per cluster! (there are about 60 clusters per window --> 30 mins) 
+    z = words_cooc_matrix.todense()
+    
+    #Creating the graph
+    G = nx.from_numpy_matrix(z)
+    G = nx.relabel_nodes(G, word_to_id) #Using the word as node label
+    layout = nx.spring_layout(G)
+    nx.draw(G, layout, with_labels=True)
+    labels = nx.get_edge_attributes(G, "weight")
+    pippo = nx.draw_networkx_edge_labels(G, pos=layout, edge_labels=labels)
+    return pippo
     
 #%% 0.1 DOWNLOADING AND PROCESSING DATA
 #Opens the json files contained in the jsonl.gz archives, processes them and create some partial output txt files 
 
-path = '/Users/lorenzodetomasi/Desktop/esame_stilo/prova'
+path = 'D:/Users/morel/Desktop/ing_inf/DATA_ANALYSIS/social_data_mining/project/COVID-19-TweetIDs-master/MarchTweets'
+
 for filename in glob.glob(os.path.join(path, '*.jsonl.gz')):
     
     nome = 'TweetsText' + filename[-18:-9]    #It will be  '-MM-DD-HH'  (Month-Day-Hour)    
@@ -190,7 +209,7 @@ for filename in glob.glob(os.path.join(path, '*.jsonl.gz')):
 #Opens the txt files just generated, computes the TF-IDF of words and identifies the most common ones
                 
 import collections 
-path = '/Users/lorenzodetomasi/Desktop/esame_stilo/prova'
+path = 'D:/Users/morel/Desktop/ing_inf/DATA_ANALYSIS/social_data_mining/project/COVID-19-TweetIDs-master/MarchTweets'
 
 def nested_dict():
     return collections.defaultdict(nested_dict)
@@ -267,21 +286,28 @@ clusters4 = clustering(SAX4_CA)
 clusters5 = clustering(SAX5_CA)
 
 clusters = [clusters1,clusters2,clusters3,clusters4,clusters5]
-       
+
+#%% 0.3 CO-OCCURRENCE GRAPH
+
+#Generating documents
+words_per_tweet = []
+for i in range (5): #Cycling through each window 0,1,2,3,4  (Should take a couple of minutes)
+    words2s = []   #We'll need 5 of these, or recycle it
+    for filename in time_window(i):   #Cycling through tweets...
+        with open(path + '/' + filename) as f:
+            words2 = f.read().splitlines()
+            [words2s.append(group) for group in sentence_groups(words2)]   #words2s now contains all tweets in a time_window    (This takes around 20 seconds per window)
+    words_per_tweet.append(words2s)
+    #for j in range (len (clusters[i])):   #It should continue here but it would take 30 mins per window and those graphs won't be utilized anyway
+        #grafo = co_occurrences_graph [i][j]
+
+#Example of execution
+grafo = co_occurrences_graph(0,7)
+
 #%%  TESTS
 #import heapq  #top k items of a dict
 #pippo = heapq.nlargest(50, top100k, key=top100k.__getitem__)
-
 #import random  #random sample of a dict
 #prova = dict(random.sample(SAX1.items(), 50))   
 
-i = 0   #This will cycle for each window 0,1,2,3,4
-words2s = []   #We'll need 5 of these, or recycle it
-for filename in time_window(i):   #Cycling through tweets...
-    with open(path + '/' + filename) as f:
-        words2 = f.read().splitlines()
-        [words2s.append(group) for group in sentence_groups(words2)]   #words2s now contains all tweets in a time_window   
-    
-allowed_words = clusters[i][2]  #The 'alphabet' whose co-occurrencies we're searching  (words contained in a certain cluster in a certain time window)
-words_cooc_matrix, word_to_id = create_co_occurences_matrix(allowed_words, words2s)
-z = words_cooc_matrix.todense()
+
