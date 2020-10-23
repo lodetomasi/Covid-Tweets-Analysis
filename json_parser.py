@@ -17,6 +17,7 @@ import pandas as pd
 import numpy as np
 import random
 import math
+import matplotlib.pyplot as plt 
 import nltk
 import copy
 import itertools
@@ -25,7 +26,8 @@ import time
 import networkx as nx
 from nltk.corpus import stopwords
 from nltk.stem import PorterStemmer
-from sklearn.cluster import AgglomerativeClustering 
+from sklearn.cluster import AgglomerativeClustering
+from collections import Counter 
 #from nltk.tokenize import word_tokenize
 #from pyts.approximation import PiecewiseAggregateApproximation
 from pyts.approximation import SymbolicAggregateApproximation
@@ -178,7 +180,31 @@ def co_occurrences_graph(window,cluster):
     nx.draw(G, layout, with_labels=True)
     labels = nx.get_edge_attributes(G, "weight")
     pippo = nx.draw_networkx_edge_labels(G, pos=layout, edge_labels=labels)
-    return pippo
+    return G, pippo
+
+def k_core(G,k):
+    H=G.copy()
+    i=1
+    while (i>0):
+        i=0
+        for node in list(H.nodes()):
+            if H.degree(node)<k:
+                H.remove_node(node)
+                i+=1
+    if (H.order()!=0):
+        plt.figure()
+        plt.title(str(k) +'-core decomposition') 
+        nx.draw(H,with_labels=True)
+    return H
+
+def full_k_core_decomposition(G):
+    vuoto = False
+    k=1
+    while (vuoto==False):
+        H = k_core(G,k)
+        k+=1
+        if (H.order()==0):
+            vuoto = True
     
 #%% 0.1 DOWNLOADING AND PROCESSING DATA
 #Opens the json files contained in the jsonl.gz archives, processes them and create some partial output txt files 
@@ -298,16 +324,20 @@ for i in range (5): #Cycling through each window 0,1,2,3,4  (Should take a coupl
             words2 = f.read().splitlines()
             [words2s.append(group) for group in sentence_groups(words2)]   #words2s now contains all tweets in a time_window    (This takes around 20 seconds per window)
     words_per_tweet.append(words2s)
-    #for j in range (len (clusters[i])):   #It should continue here but it would take 30 mins per window and those graphs won't be utilized anyway
-        #grafo = co_occurrences_graph [i][j]
+    #for j in range (len (clusters[i])):   #It should continue here but it would take hours
+        #G, grafo = co_occurrences_graph [i][j]
 
 #Example of execution
-grafo = co_occurrences_graph(0,7)
+G, grafo = co_occurrences_graph(0,2)
+
+weights_dict = {key:int(grafo[key].get_text()) for key in grafo}
+weights_dist = dict(Counter(weights_dict.values()).most_common()) #Weight distribution
+
+full_k_core_decomposition(G) #Extracting K-Core
 
 #%%  TESTS
 #import heapq  #top k items of a dict
 #pippo = heapq.nlargest(50, top100k, key=top100k.__getitem__)
 #import random  #random sample of a dict
 #prova = dict(random.sample(SAX1.items(), 50))   
-
-
+            
