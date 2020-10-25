@@ -360,5 +360,4 @@ for nodo in graphs[-2].nodes():
     plt.title('TD-IDF of Words')
 
     
-label = ['01-March','01-March','02-March','02-March','03-March','03-March','04-March','04-March','05-March','05-March','06-March','06-March','07-March','07-March','08-March','08-March','09-March','09-March','10-March','10-March']
 # %%
