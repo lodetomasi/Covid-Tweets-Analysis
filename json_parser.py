@@ -84,7 +84,7 @@ def fill_series(diz,window):    #Takes the most common 100k terms and fills thei
     window = time_window(window)
     for term in diz:
         #print('The normalized frequency of the term \'{}\' over time is: {}'.format(term,dict.__repr__(tf[term]).replace('TweetsText-','')))
-        timeseries[term] = copy.deepcopy(tf[term])
+        timeseries[term] = copy.deepcopy(tf_idf[term])
         for key, value in list(timeseries[term].items()):
             if key not in window:
                 del timeseries[term][key]
@@ -198,13 +198,16 @@ def k_core(G,k):
     return H
 
 def full_k_core_decomposition(G):
+    graphs = []
     vuoto = False
     k=1
     while (vuoto==False):
         H = k_core(G,k)
+        graphs.append(H)
         k+=1
         if (H.order()==0):
             vuoto = True
+    return graphs
     
 #%% 0.1 DOWNLOADING AND PROCESSING DATA
 #Opens the json files contained in the jsonl.gz archives, processes them and create some partial output txt files 
@@ -326,6 +329,7 @@ for i in range (5): #Cycling through each window 0,1,2,3,4  (Should take a coupl
     words_per_tweet.append(words2s)
     #for j in range (len (clusters[i])):   #It should continue here but it would take hours
         #G, grafo = co_occurrences_graph [i][j]
+        #...
 
 #Example of execution
 G, grafo = co_occurrences_graph(0,2)
@@ -333,8 +337,15 @@ G, grafo = co_occurrences_graph(0,2)
 weights_dict = {key:int(grafo[key].get_text()) for key in grafo}
 weights_dist = dict(Counter(weights_dict.values()).most_common()) #Weight distribution
 
-full_k_core_decomposition(G) #Extracting K-Core
+graphs = full_k_core_decomposition(G) #Extracting K-Core
 
+#%% 0.4 TIME SERIES PLOTTING
+
+for nodo in graphs[-2].nodes():
+    print (PAA1[nodo])
+    
+
+    
 #%%  TESTS
 #import heapq  #top k items of a dict
 #pippo = heapq.nlargest(50, top100k, key=top100k.__getitem__)
