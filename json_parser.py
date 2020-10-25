@@ -342,9 +342,8 @@ graphs = full_k_core_decomposition(G) #Extracting K-Core
 #%% 0.4 TIME SERIES PLOTTING
 
 for nodo in graphs[-2].nodes():
-    print (PAA1[nodo])
+    print ('La time series relativa alla TF-IDF della parola \'{}\' è \n {}'.format(nodo,PAA1[nodo]))
     
-
     
 #%%  TESTS
 #import heapq  #top k items of a dict
