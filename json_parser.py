@@ -4,7 +4,7 @@ Created on Mon Jul 27 13:08:42 2020
 
 @author: morel
 """
-
+#%%
 import json
 import re
 import glob
@@ -212,7 +212,7 @@ def full_k_core_decomposition(G):
 #%% 0.1 DOWNLOADING AND PROCESSING DATA
 #Opens the json files contained in the jsonl.gz archives, processes them and create some partial output txt files 
 
-path = 'D:/Users/morel/Desktop/ing_inf/DATA_ANALYSIS/social_data_mining/project/COVID-19-TweetIDs-master/MarchTweets'
+path = '/Users/lorenzodetomasi/Desktop/MarchTweets'
 
 for filename in glob.glob(os.path.join(path, '*.jsonl.gz')):
     
@@ -238,7 +238,7 @@ for filename in glob.glob(os.path.join(path, '*.jsonl.gz')):
 #Opens the txt files just generated, computes the TF-IDF of words and identifies the most common ones
                 
 import collections 
-path = 'D:/Users/morel/Desktop/ing_inf/DATA_ANALYSIS/social_data_mining/project/COVID-19-TweetIDs-master/MarchTweets'
+path = '/Users/lorenzodetomasi/Desktop/MarchTweets'
 
 def nested_dict():
     return collections.defaultdict(nested_dict)
@@ -350,4 +350,15 @@ for nodo in graphs[-2].nodes():
 #pippo = heapq.nlargest(50, top100k, key=top100k.__getitem__)
 #import random  #random sample of a dict
 #prova = dict(random.sample(SAX1.items(), 50))   
-            
+label = ['01-March','01-March','02-March','02-March','03-March','03-March','04-March','04-March','05-March','05-March','06-March','06-March','07-March','07-March','08-March','08-March','09-March','09-March','10-March','10-March']            
+plt.figure(figsize=(15,7))
+for nodo in graphs[-2].nodes():
+    plt.plot(PAA1[nodo],label=nodo)
+    plt.xticks(np.arange(20), label,rotation=90)
+    plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.2),
+          ncol=3, fancybox=True, shadow=True)
+    plt.title('TD-IDF of Words')
+
+    
+label = ['01-March','01-March','02-March','02-March','03-March','03-March','04-March','04-March','05-March','05-March','06-March','06-March','07-March','07-March','08-March','08-March','09-March','09-March','10-March','10-March']
+# %%
