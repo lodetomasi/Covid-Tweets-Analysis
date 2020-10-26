@@ -4,7 +4,7 @@ Created on Mon Jul 27 13:08:42 2020
 
 @author: morel
 """
-#%%
+
 import json
 import re
 import glob
@@ -17,6 +17,7 @@ import pandas as pd
 import numpy as np
 import random
 import math
+import collections
 import matplotlib.pyplot as plt 
 import nltk
 import copy
@@ -94,7 +95,7 @@ def fill_series(diz,window):    #Takes the most common 100k terms and fills thei
     return timeseries
 
 def paa(window):
-    timeseries = fill_series(top100k,window)   #Considering time windows...
+    timeseries = fill_series(top100k,window-1)   #Considering time windows...
     PAA = {}     #PAA  (we reduce dimension)
     
     for diz in timeseries:
@@ -209,10 +210,37 @@ def full_k_core_decomposition(G):
             vuoto = True
     return graphs
     
+def get_n_longest_values_g(dictionary, n):
+    longest_entries = sorted(dictionary.items(), key=lambda t: len(t[1]), reverse=True)[:n]
+    return [(key, value) for key, value in longest_entries]
+
+def plot_timeseries(words,window):
+    label = time_window(window-1)[::8]
+    label = [ele[14:16] for ele in label for i in range(2)]  #It will be like 01,01,02,02,03,03...  (two timestamps per day, grain is 12h)
+    fig = plt.figure(figsize=(15,7))
+    ax = fig.add_subplot(111)
+    colormap = plt.cm.nipy_spectral
+    colors = [colormap(i) for i in np.linspace(0, 1,len(words))]
+    ax.set_prop_cycle('color', colors)
+    LINE_STYLES = ['solid', 'dashed', 'dashdot', 'dotted']   #Changind colors and style for readibility
+    i=0
+    for nodo in words():
+        lines = ax.plot(PAA[window][nodo],label=nodo)
+        lines[0].set_linestyle(LINE_STYLES[i%4])
+        plt.xticks(np.arange(20), label)
+        plt.legend(loc='best',
+              ncol=3, fancybox=True, shadow=True)
+        #plt.title('TD-IDF of Words')
+        i+=1
+    plt.xlabel('Days (of March)',fontsize=14)
+    plt.ylabel('TF-IDF',fontsize=14)
+
 #%% 0.1 DOWNLOADING AND PROCESSING DATA
 #Opens the json files contained in the jsonl.gz archives, processes them and create some partial output txt files 
 
-path = '/Users/lorenzodetomasi/Desktop/MarchTweets'
+path = 'D:/Users/morel/Desktop/ing_inf/DATA_ANALYSIS/social_data_mining/project/COVID-19-TweetIDs-master/MarchTweets'
+
+users = collections.defaultdict(list)
 
 for filename in glob.glob(os.path.join(path, '*.jsonl.gz')):
     
@@ -221,14 +249,18 @@ for filename in glob.glob(os.path.join(path, '*.jsonl.gz')):
     
     with gzip.open(filename, 'rb') as f:
      if (nome + '.txt') not in os.listdir(path):   #Checks if this one hasn't already been processed
-      with open(path + '//' + nome + '.txt', 'w') as g:
+      with open(path + '//' + nome + '.txt', 'w', encoding="utf-8") as g:
         for jsonObj in f:    #Each tweet in a file is a different json object
             tweetDict = json.loads(jsonObj)
+            #Ret = True
             if "retweeted_status" in tweetDict:   #retweets and normal tweets have a DIFFERENT STRUCTURE! the former's "full_text" is truncated, so it's necessary to load the original tweet
                 g.write('\n'.join(text_preprocessing(tweetDict['retweeted_status']['full_text']))+'\n-\n')
             else:
-                g.write('\n'.join(text_preprocessing(tweetDict['full_text']))+'\n-\n')               
-
+                #Ret = False
+                g.write('\n'.join(text_preprocessing(tweetDict['full_text']))+'\n-\n')
+                
+            #if (Ret and tweetDict["entities"]["user_mentions"] != []):
+                #users[tweetDict['user']['name']].append([tweetDict['created_at'],tweetDict['retweeted_status']['user']['screen_name'], tweetDict['entities']['user_mentions']])
         
 #%%   An example of a tweet processing
             
@@ -238,7 +270,7 @@ for filename in glob.glob(os.path.join(path, '*.jsonl.gz')):
 #Opens the txt files just generated, computes the TF-IDF of words and identifies the most common ones
                 
 import collections 
-path = '/Users/lorenzodetomasi/Desktop/MarchTweets'
+path = 'D:/Users/morel/Desktop/ing_inf/DATA_ANALYSIS/social_data_mining/project/COVID-19-TweetIDs-master/MarchTweets'
 
 def nested_dict():
     return collections.defaultdict(nested_dict)
@@ -288,11 +320,13 @@ top100k = dict(collections.Counter(sums).most_common(n))
 
 #%%0.2A BUILDING TIME SERIES        
                                               
-PAA1 = paa(0)  #These will take about 1 minute in total
-PAA2 = paa(1)
-PAA3 = paa(2)
-PAA4 = paa(3)
-PAA5 = paa(4)
+PAA1 = paa(1)  #These will take about 1 minute in total
+PAA2 = paa(2)
+PAA3 = paa(3)
+PAA4 = paa(4)
+PAA5 = paa(5)
+
+PAA = [PAA1,PAA2,PAA3,PAA4,PAA5]
     
 #%% 0.2B SAX
 n_bins = 2
@@ -341,23 +375,20 @@ graphs = full_k_core_decomposition(G) #Extracting K-Core
 
 #%% 0.4 TIME SERIES PLOTTING
 
-for nodo in graphs[-2].nodes():
+for nodo in graphs[-2].nodes():   #It contains the innermost core
     print ('La time series relativa alla TF-IDF della parola \'{}\' è \n {}'.format(nodo,PAA1[nodo]))
     
+plot_timeseries(graphs[-2].nodes(),1)  #It takes as input the group and its window  
+    
+#%% 1.1 NETWORK ANALYSIS
+#Opens the json files contained in the jsonl.gz archives, processes them and create some partial output txt files 
+
+
+
     
 #%%  TESTS
 #import heapq  #top k items of a dict
 #pippo = heapq.nlargest(50, top100k, key=top100k.__getitem__)
 #import random  #random sample of a dict
 #prova = dict(random.sample(SAX1.items(), 50))   
-label = ['01-March','01-March','02-March','02-March','03-March','03-March','04-March','04-March','05-March','05-March','06-March','06-March','07-March','07-March','08-March','08-March','09-March','09-March','10-March','10-March']            
-plt.figure(figsize=(15,7))
-for nodo in graphs[-2].nodes():
-    plt.plot(PAA1[nodo],label=nodo)
-    plt.xticks(np.arange(20), label,rotation=90)
-    plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.2),
-          ncol=3, fancybox=True, shadow=True)
-    plt.title('TD-IDF of Words')
-
-    
-# %%
+            
