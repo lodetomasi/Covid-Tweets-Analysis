@@ -18,6 +18,7 @@ import numpy as np
 import random
 import math
 import collections
+from collections import defaultdict
 import heapq
 import matplotlib.pyplot as plt 
 import nltk
@@ -263,7 +264,6 @@ for filename in glob.glob(os.path.join(path, '*.jsonl.gz')):
 #%% 0.2 IDENTIFYING TOP 100k TOKENS
 #Opens the txt files just generated, computes the TF-IDF of words and identifies the most common ones
                 
-import collections 
 path = 'D:/Users/morel/Desktop/ing_inf/DATA_ANALYSIS/social_data_mining/project/COVID-19-TweetIDs-master/MarchTweets'
 
 def nested_dict():
@@ -448,14 +448,55 @@ for filename in glob.glob(os.path.join(path, '*.jsonl.gz')):
                    g.write(taggato['screen_name']+',')
                g.write('\n'.join(text_preprocessing(tweetDict['retweeted_status']['full_text']))+'\n-\n')
                #g.write('\n-\n')
-    print (time.time() - start)       
+    print (time.time() - start)     
+    
+#%%   1.2   GRAPHS
+    
+#1.2b  Gm (number of mentions and retweets)   
+    
+path = 'D:/Users/morel/Desktop/ing_inf/DATA_ANALYSIS/social_data_mining/project/COVID-19-TweetIDs-master/MarchTweets'
+
+tweets = []
+users_interactions = defaultdict(lambda: defaultdict(int))   #It will contain num of interactions of each user with each other one
+
+for filename in glob.glob(os.path.join(path+ '//Users', '*.txt')):    
+    with open(filename) as f:
+        print("Started processing {}".format(filename[-18:]))
+        linee = f.read().splitlines()
+        [tweets.append(group) for group in sentence_groups(linee)]   
+    
+        for tweet in tweets:
+            users_interactions[tweet[0]][tweet[1]] += 1
+            for a in tweet[2].split(','):
+                users_interactions[tweet[0]][a] += 1
+            
+TrumpFans = []        #Users which interacted more with Trump than with everyone else
+for utente in users_interactions:
+    if ('realDonaldTrump' in heapq.nlargest(1, users_interactions[utente], key=users_interactions[utente].__getitem__)):
+        TrumpFans.append(utente)
+
+edges = []                #Need all the edges in a list to generate the graph
+for interaction in users_interactions:
+    for chiave in users_interactions[interaction]:
+        edges.append((interaction, chiave, users_interactions[interaction][chiave]))
+    
+G = nx.DiGraph()    #Directed
+G.add_weighted_edges_from(edges)    #and weighted
+#layout = nx.spring_layout(G)           #it'd be useless to draw a graph so huge, just all black
+#nx.draw(G, layout, with_labels=True)
+#labels = nx.get_edge_attributes(G, "weight")
+#pippo = nx.draw_networkx_edge_labels(G, pos=layout, edge_labels=labels)
+#pippo = full_k_core_decomposition(G)
+
+authorities = sorted(G.in_degree, key=lambda x: x[1], reverse=True)[:10]   #Top k nodes with more in-links
+
+#%% 1.3 
+
+maxg = G.subgraph(max(nx.strongly_connected_components(G), key=len))  #largest connected component
     
 #%%  TESTS
 #prova = heapq.nlargest(10000, user_activities, key=user_activities.__getitem__)
 
 #import random  #random sample of a dict
-#prova = dict(random.sample(user_activities.items(), 50))   
-
-
-
-
+#prova = dict(random.sample(user_activities.items(), 50))  
+    
