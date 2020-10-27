@@ -18,6 +18,7 @@ import numpy as np
 import random
 import math
 import collections
+import heapq
 import matplotlib.pyplot as plt 
 import nltk
 import copy
@@ -240,8 +241,6 @@ def plot_timeseries(words,window):
 
 path = 'D:/Users/morel/Desktop/ing_inf/DATA_ANALYSIS/social_data_mining/project/COVID-19-TweetIDs-master/MarchTweets'
 
-users = collections.defaultdict(list)
-
 for filename in glob.glob(os.path.join(path, '*.jsonl.gz')):
     
     nome = 'TweetsText' + filename[-18:-9]    #It will be  '-MM-DD-HH'  (Month-Day-Hour)    
@@ -252,16 +251,11 @@ for filename in glob.glob(os.path.join(path, '*.jsonl.gz')):
       with open(path + '//' + nome + '.txt', 'w', encoding="utf-8") as g:
         for jsonObj in f:    #Each tweet in a file is a different json object
             tweetDict = json.loads(jsonObj)
-            #Ret = True
             if "retweeted_status" in tweetDict:   #retweets and normal tweets have a DIFFERENT STRUCTURE! the former's "full_text" is truncated, so it's necessary to load the original tweet
                 g.write('\n'.join(text_preprocessing(tweetDict['retweeted_status']['full_text']))+'\n-\n')
             else:
-                #Ret = False
                 g.write('\n'.join(text_preprocessing(tweetDict['full_text']))+'\n-\n')
-                
-            #if (Ret and tweetDict["entities"]["user_mentions"] != []):
-                #users[tweetDict['user']['name']].append([tweetDict['created_at'],tweetDict['retweeted_status']['user']['screen_name'], tweetDict['entities']['user_mentions']])
-        
+                       
 #%%   An example of a tweet processing
             
 #print(text_preprocessing("@wadster13 @SaraCarterDC Question, does the attachment highlight an on going plan to distroy America by taking down President Trump and it's economy. Just because there is no shots fired don't mind that we're not at war https://t.co/MgEENN04ez"))
@@ -363,7 +357,7 @@ for i in range (5): #Cycling through each window 0,1,2,3,4  (Should take a coupl
     words_per_tweet.append(words2s)
     #for j in range (len (clusters[i])):   #It should continue here but it would take hours
         #G, grafo = co_occurrences_graph [i][j]
-        #...
+        #...t
 
 #Example of execution
 G, grafo = co_occurrences_graph(0,2)
@@ -383,12 +377,85 @@ plot_timeseries(graphs[-2].nodes(),1)  #It takes as input the group and its wind
 #%% 1.1 NETWORK ANALYSIS
 #Opens the json files contained in the jsonl.gz archives, processes them and create some partial output txt files 
 
+path = 'D:/Users/morel/Desktop/ing_inf/DATA_ANALYSIS/social_data_mining/project/COVID-19-TweetIDs-master/MarchTweets'
+            
+for filename in glob.glob(os.path.join(path, '*.jsonl.gz')):   
+    
+    nome = 'Metadata' + filename[-18:-9]    #It will be  '-MM-DD-HH'  (Month-Day-Hour)    
+    print("Started creating {}".format(nome))
+    start = time.time()
+    with gzip.open(filename, 'rb') as f:
+     if (nome + '.txt') not in os.listdir(path+ '//Metadata'):   #Checks if this one hasn't already been processed
+      with open(path + '//Metadata//' + nome + '.txt', 'w', encoding="utf-8") as g:     #They will contain nick of tweet author, nick of user that has been retweeted, nicks of mentioned users
+        for jsonObj in f:    #Each tweet in a file is a different json object
+            tweetDict = json.loads(jsonObj)
+            if ("retweeted_status" not in tweetDict):     
+                if (tweetDict["entities"]["user_mentions"] != []):  #It must contain mentions, otherwise this will be skipped
+                    g.write(tweetDict['user']['screen_name']+'\n\n')    #If not a retweet second line will be empty
+                    for taggato in tweetDict['entities']['user_mentions']:
+                        g.write(taggato['screen_name']+',')
+                    g.write('\n-\n')
+            else:
+               g.write(tweetDict['user']['screen_name']+'\n')
+               g.write(tweetDict['retweeted_status']['user']['screen_name']+'\n')
+               for taggato in tweetDict['entities']['user_mentions']:
+                   g.write(taggato['screen_name']+',')
+               g.write('\n-\n')
+    print (time.time() - start)
 
+words_single = []
+user_activities = collections.defaultdict(int)
 
+if ('top10kusers.txt' not in os.listdir(path+ '//Metadata')):   #Skip if already done, it's kinda slow
+    for filename in glob.glob(os.path.join(path+ '//Metadata', '*.txt')):
+        with open(filename, 'r', encoding="utf-8") as f:
+            linea = f.read().splitlines()
+            [words_single.append(group) for group in sentence_groups(linea)]
+        
+        for tripla in words_single:
+            user_activities[tripla[0]] += 1   #This will contain total number of tweets by a user
+            
+    top10k = heapq.nlargest(10000, user_activities, key=user_activities.__getitem__)   #We only consider top 10k active users
+                  
+    with open(path + '//Metadata//' + 'top10kusers.txt', 'w', encoding="utf-8") as g:
+            g.write('\n'.join(top10k))     #Storing it on a file, just in case  
+else:
+    with open('D:/Users/morel/Desktop/ing_inf/DATA_ANALYSIS/social_data_mining/project/COVID-19-TweetIDs-master/MarchTweets/Metadata/top10kusers.txt') as f:
+        top10k = f.read().splitlines()
+
+for filename in glob.glob(os.path.join(path, '*.jsonl.gz')):   
+    
+    nome = 'Users' + filename[-18:-9]    #It will be  '-MM-DD-HH'  (Month-Day-Hour)    
+    print("Started creating {}".format(nome))
+    start = time.time()
+    with gzip.open(filename, 'rb') as f:
+     if (nome + '.txt') not in os.listdir(path+ '//Users'):   #Checks if this one hasn't already been processed
+      with open(path + '//Users//' + nome + '.txt', 'w', encoding="utf-8") as g:     #They will contain nick of tweet author, nick of user that has been retweeted, nicks of mentioned users
+        for jsonObj in f:    #Each tweet in a file is a different json object
+          tweetDict = json.loads(jsonObj)
+          if (tweetDict['user']['screen_name'] in top10k):
+            if ("retweeted_status" not in tweetDict):     
+                if (tweetDict["entities"]["user_mentions"] != []):  #It must contain mentions, otherwise this will be skipped
+                    g.write(tweetDict['user']['screen_name']+'\n\n')    #If not a retweet second line will be empty
+                    for taggato in tweetDict['entities']['user_mentions']:
+                        g.write(taggato['screen_name']+',')
+                    g.write('\n'.join(text_preprocessing(tweetDict['full_text']))+'\n-\n')
+                    #g.write('\n-\n')
+            else:
+               g.write(tweetDict['user']['screen_name']+'\n')
+               g.write(tweetDict['retweeted_status']['user']['screen_name']+'\n')
+               for taggato in tweetDict['entities']['user_mentions']:
+                   g.write(taggato['screen_name']+',')
+               g.write('\n'.join(text_preprocessing(tweetDict['retweeted_status']['full_text']))+'\n-\n')
+               #g.write('\n-\n')
+    print (time.time() - start)       
     
 #%%  TESTS
-#import heapq  #top k items of a dict
-#pippo = heapq.nlargest(50, top100k, key=top100k.__getitem__)
+#prova = heapq.nlargest(10000, user_activities, key=user_activities.__getitem__)
+
 #import random  #random sample of a dict
-#prova = dict(random.sample(SAX1.items(), 50))   
-            
+#prova = dict(random.sample(user_activities.items(), 50))   
+
+
+
+
