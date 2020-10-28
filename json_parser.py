@@ -439,7 +439,6 @@ for filename in glob.glob(os.path.join(path, '*.jsonl.gz')):
                     g.write(tweetDict['user']['screen_name']+'\n\n')    #If not a retweet second line will be empty
                     for taggato in tweetDict['entities']['user_mentions']:
                         g.write(taggato['screen_name']+',')
-                    g.write('\n')
                     g.write('\n'.join(text_preprocessing(tweetDict['full_text']))+'\n-\n')
                     #g.write('\n-\n')
             else:
@@ -447,7 +446,6 @@ for filename in glob.glob(os.path.join(path, '*.jsonl.gz')):
                g.write(tweetDict['retweeted_status']['user']['screen_name']+'\n')
                for taggato in tweetDict['entities']['user_mentions']:
                    g.write(taggato['screen_name']+',')
-                   g.write('\n')
                g.write('\n'.join(text_preprocessing(tweetDict['retweeted_status']['full_text']))+'\n-\n')
                #g.write('\n-\n')
     print (time.time() - start)     
@@ -461,7 +459,7 @@ path = 'D:/Users/morel/Desktop/ing_inf/DATA_ANALYSIS/social_data_mining/project/
 tweets = []
 users_interactions = defaultdict(lambda: defaultdict(int))   #It will contain num of interactions of each user with each other one
 
-for filename in glob.glob(os.path.join(path+ '//Users', '*.txt')):     #This takes a couple of minutes 
+for filename in glob.glob(os.path.join(path+ '//Users', '*.txt')):    
     with open(filename) as f:
         print("Started processing {}".format(filename[-18:]))
         linee = f.read().splitlines()
@@ -469,13 +467,13 @@ for filename in glob.glob(os.path.join(path+ '//Users', '*.txt')):     #This tak
     
         for tweet in tweets:
             users_interactions[tweet[0]][tweet[1]] += 1
-            for a in tweet[2].split(',')[:-1]:   #Need to skip the empty ''
+            for a in tweet[2].split(','):
                 users_interactions[tweet[0]][a] += 1
             
-#TrumpFans = []        #Users which interacted (retweeted or mentioned) a lot with Trump 
-#for utente in users_interactions:
-#    if ('realDonaldTrump' in heapq.nlargest(1, users_interactions[utente], key=users_interactions[utente].__getitem__)):
-#        TrumpFans.append(utente)   #They are 1000 on 10k,  that's 10%!!
+TrumpFans = []        #Users which interacted more with Trump than with everyone else
+for utente in users_interactions:
+    if ('realDonaldTrump' in heapq.nlargest(1, users_interactions[utente], key=users_interactions[utente].__getitem__)):
+        TrumpFans.append(utente)
 
 edges = []                #Need all the edges in a list to generate the graph
 for interaction in users_interactions:
@@ -484,14 +482,13 @@ for interaction in users_interactions:
     
 G = nx.DiGraph()    #Directed
 G.add_weighted_edges_from(edges)    #and weighted
-#layout = nx.spring_layout(G)           #it'd be useless (and VERY slow) to draw a graph so huge, just all black
+#layout = nx.spring_layout(G)           #it'd be useless to draw a graph so huge, just all black
 #nx.draw(G, layout, with_labels=True)
 #labels = nx.get_edge_attributes(G, "weight")
 #pippo = nx.draw_networkx_edge_labels(G, pos=layout, edge_labels=labels)
 #pippo = full_k_core_decomposition(G)
 
 authorities = sorted(G.in_degree, key=lambda x: x[1], reverse=True)[:10]   #Top k nodes with more in-links
-hubs = sorted(G.out_degree, key=lambda x: x[1], reverse=True)[:10]   #Top k nodes with more in-links
 
 #%% 1.3 
 
