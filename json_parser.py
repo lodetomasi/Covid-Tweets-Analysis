@@ -447,7 +447,7 @@ for filename in glob.glob(os.path.join(path, '*.jsonl.gz')):
                g.write(tweetDict['retweeted_status']['user']['screen_name']+'\n')
                for taggato in tweetDict['entities']['user_mentions']:
                    g.write(taggato['screen_name']+',')
-                   g.write('\n')
+               g.write('\n')
                g.write('\n'.join(text_preprocessing(tweetDict['retweeted_status']['full_text']))+'\n-\n')
                #g.write('\n-\n')
     print (time.time() - start)     
@@ -473,10 +473,10 @@ for filename in glob.glob(os.path.join(path+ '//Users', '*.txt')):     #This tak
                 users_interactions[tweet[0]][a] += 1
                 
             
-#TrumpFans = []        #Users which interacted (retweeted or mentioned) a lot with Trump 
-#for utente in users_interactions:
-#    if ('realDonaldTrump' in heapq.nlargest(1, users_interactions[utente], key=users_interactions[utente].__getitem__)):
-#        TrumpFans.append(utente)   #They are 1000 on 10k,  that's 10%!!
+TrumpFans = []        #Users which interacted with Trump more than with everyone else
+for utente in users_interactions:
+    if ('realDonaldTrump' in heapq.nlargest(1, users_interactions[utente], key=users_interactions[utente].__getitem__)):
+        TrumpFans.append(utente)    #They are almost 1200; more than 10% of the whole considered user base!
 
 edges = []                #Need all the edges in a list to generate the graph
 for interaction in users_interactions:
@@ -505,6 +505,20 @@ maxg = G.subgraph(max(nx.strongly_connected_components(G), key=len))  #largest c
 #%%  TESTS
 #prova = heapq.nlargest(10000, user_activities, key=user_activities.__getitem__)
 
-import random  #random sample of a dict
-prova = dict(random.sample(users_interactions.items(), 10))  
+#import random  #random sample of a dict
+#prova = dict(random.sample(SAX1_CA.items(), 10)) 
+
+clusters_interactions = defaultdict(lambda: defaultdict(int))  
+
+for filename in [file.replace('TweetsText', 'Users') for file in time_window(0)]:
+    with open(filename) as f:
+        tweets = []
+        print("Started processing {}".format(filename[-18:]))
+        linee = f.read().splitlines()
+        [tweets.append(group) for group in sentence_groups(linee)]   
     
+        for tweet in tweets:
+#            users_interactions[tweet[0]][tweet[1]] += 1
+#            for a in tweet[2].split(',')[:-1]:   #Need to skip the empty ''
+#                users_interactions[tweet[0]][a] += 1
+        
