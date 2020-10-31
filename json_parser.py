@@ -454,6 +454,41 @@ for filename in glob.glob(os.path.join(path, '*.jsonl.gz')):
     
 #%%   1.2   GRAPHS
     
+#1.2a Gt (number of co-interests in same cluster)
+    
+path = 'D:/Users/morel/Desktop/ing_inf/DATA_ANALYSIS/social_data_mining/project/COVID-19-TweetIDs-master/MarchTweets'
+users_interactions_in_cluster = defaultdict(lambda: defaultdict(int))  
+
+#for i in range (5):   The part below should be executed on all 5 windows  (edit 0 with i)  --> it's kinda slow
+for filename in [file.replace('TweetsText', 'Users') for file in time_window(0)]:
+    with open(path + '/Users/' + filename) as f:
+        print("Started processing {}".format(filename[-18:]))
+        linee = f.read().splitlines()
+    
+        clusters_interactions = defaultdict(lambda: defaultdict(int))  
+        
+        for group in sentence_groups(linee):
+            for cluster in clusters[0]:
+                for word in clusters[0][cluster]:
+                    if word in group:
+                        clusters_interactions[cluster][group[0]]+=1   #Counting how many times each user writes a word contained in a cluster 
+                        
+        for interaction in clusters_interactions:
+            for i in clusters_interactions[interaction]: 
+                for j in clusters_interactions[interaction]:
+                    if (j>i):
+                        users_interactions_in_cluster[i][j] += min(clusters_interactions[interaction][i],clusters_interactions[interaction][j])   #If user i used a word belonging to a certain cluster 4 times and user j used it 7 times, it means they are interested in the same topic 4 times
+                        
+edges = []                #Need all the edges in a list to generate the graph
+for interaction in users_interactions_in_cluster:
+    for chiave in users_interactions_in_cluster[interaction]:
+        edges.append((interaction, chiave, users_interactions_in_cluster[interaction][chiave]))                                             
+                        
+G = nx.Graph()    #Undirected
+G.add_weighted_edges_from(edges)    #and weighted
+
+most_cointerested_players = sorted(edges, key=lambda tup: tup[2], reverse = True)[:10] 
+    
 #1.2b  Gm (number of mentions and retweets)   
     
 path = 'D:/Users/morel/Desktop/ing_inf/DATA_ANALYSIS/social_data_mining/project/COVID-19-TweetIDs-master/MarchTweets'
@@ -508,17 +543,4 @@ maxg = G.subgraph(max(nx.strongly_connected_components(G), key=len))  #largest c
 #import random  #random sample of a dict
 #prova = dict(random.sample(SAX1_CA.items(), 10)) 
 
-clusters_interactions = defaultdict(lambda: defaultdict(int))  
 
-for filename in [file.replace('TweetsText', 'Users') for file in time_window(0)]:
-    with open(filename) as f:
-        tweets = []
-        print("Started processing {}".format(filename[-18:]))
-        linee = f.read().splitlines()
-        [tweets.append(group) for group in sentence_groups(linee)]   
-    
-        for tweet in tweets:
-#            users_interactions[tweet[0]][tweet[1]] += 1
-#            for a in tweet[2].split(',')[:-1]:   #Need to skip the empty ''
-#                users_interactions[tweet[0]][a] += 1
-        
