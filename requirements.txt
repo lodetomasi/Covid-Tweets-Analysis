@@ -4,7 +4,7 @@
 _ipyw_jlab_nb_ext_conf=0.1.0=py37_0
 absl-py=0.9.0=pypi_0
 adal=1.2.2=pypi_0
-aiodns=2.0.0=pypi_0
+aiodns=2.0.0=pypi_0ojpiili
 aiohttp=3.6.2=pypi_0
 aiohttp-socks=0.3.8=pypi_0
 alabaster=0.7.12=py37_0
